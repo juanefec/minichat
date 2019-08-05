@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -41,7 +43,14 @@ type Client struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan messg
+
+	// Name of client
+	name string
+}
+
+func generateJSON(name, message []byte) []byte {
+	return []byte(fmt.Sprintf(`{"name":"%v","message":"%v"}`, string(name), string(message)))
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -66,7 +75,12 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- message
+		smessage := string(message)
+		if strings.Contains(smessage, "update-nickname:") {
+			c.name = smessage[16:]
+		} else {
+			c.hub.broadcast <- &messg{name: []byte(c.name), message: message}
+		}
 	}
 }
 
@@ -95,13 +109,15 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
-			w.Write(message)
+
+			w.Write(generateJSON(message.name, message.message))
 
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
+				nm := <-c.send
 				w.Write(newline)
-				w.Write(<-c.send)
+				w.Write(generateJSON(nm.name, nm.message))
 			}
 
 			if err := w.Close(); err != nil {
@@ -123,7 +139,8 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	conn.RemoteAddr()
+	client := &Client{hub: hub, conn: conn, send: make(chan messg, 256)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in

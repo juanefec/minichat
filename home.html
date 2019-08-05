@@ -1,91 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<title>Chat Example</title>
-<script type="text/javascript">
-window.onload = function () {
-    var conn;
-    var msg = document.getElementById("msg");
-    var log = document.getElementById("log");
-    function appendLog(item) {
-        var doScroll = log.scrollTop > log.scrollHeight - log.clientHeight - 1;
-        log.appendChild(item);
-        if (doScroll) {
-            log.scrollTop = log.scrollHeight - log.clientHeight;
-        }
-    }
-    document.getElementById("form").onsubmit = function () {
-        if (!conn) {
-            return false;
-        }
-        if (!msg.value) {
-            return false;
-        }
-        conn.send(msg.value);
-        msg.value = "";
-        return false;
-    };
-    if (window["WebSocket"]) {
-        conn = new WebSocket("ws://" + document.location.host + "/ws");
-        conn.onclose = function (evt) {
-            var item = document.createElement("div");
-            item.innerHTML = "<b>Connection closed.</b>";
-            appendLog(item);
-        };
-        conn.onmessage = function (evt) {
-            var messages = evt.data.split('\n');
-            for (var i = 0; i < messages.length; i++) {
+    <title>Chat Example</title>
+    <script type="text/javascript">
+        window.onload = function () {
+            var conn;
+            var msg = document.getElementById("msg");
+            var log = document.getElementById("log");
+            var name = document.getElementById("name");
+            function appendLog(item) {
+                var doScroll = log.scrollTop > log.scrollHeight - log.clientHeight - 1;
+                log.appendChild(item);
+                if (doScroll) {
+                    log.scrollTop = log.scrollHeight - log.clientHeight;
+                }
+            }
+            document.getElementById("formName").onsubmit = function () {
+                conn.send(`update-nickname:${name.value}`);
+                return false;
+            };
+            document.getElementById("form").onsubmit = function () {
+                if (!conn) {
+                    return false;
+                }
+                if (!msg.value) {
+                    return false;
+                }
+                conn.send(msg.value);
+                msg.value = "";
+                return false;
+            };
+            if (window["WebSocket"]) {
+                conn = new WebSocket("ws://" + document.location.host + "/ws");
+                conn.onclose = function (evt) {
+                    var item = document.createElement("div");
+                    item.innerHTML = "<b>Connection closed.</b>";
+                    appendLog(item);
+                };
+                conn.onmessage = function (evt) {
+                    let json = JSON.parse(evt.data)
+                    var messages = json.message.split('\n');
+                    for (var i = 0; i < messages.length; i++) {
+                        var item = document.createElement("div");
+                        item.innerText = json.name + ": " + messages[i];
+                        appendLog(item);
+                    }
+                };
+            } else {
                 var item = document.createElement("div");
-                item.innerText = messages[i];
+                item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
                 appendLog(item);
             }
         };
-    } else {
-        var item = document.createElement("div");
-        item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
-        appendLog(item);
-    }
-};
-</script>
-<style type="text/css">
-html {
-    overflow: hidden;
-}
-body {
-    overflow: hidden;
-    padding: 0;
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    background: gray;
-}
-#log {
-    background: white;
-    margin: 0;
-    padding: 0.5em 0.5em 0.5em 0.5em;
-    position: absolute;
-    top: 0.5em;
-    left: 0.5em;
-    right: 0.5em;
-    bottom: 3em;
-    overflow: auto;
-}
-#form {
-    padding: 0 0.5em 0 0.5em;
-    margin: 0;
-    position: absolute;
-    bottom: 1em;
-    left: 0px;
-    width: 100%;
-    overflow: hidden;
-}
-</style>
+    </script>
+    <style type="text/css">
+        body {
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            background: gray;
+        }
+
+        .message {
+            grid-area: message;
+        }
+
+        .name {
+            grid-area: name;
+        }
+
+        .main {
+            overflow-y: scroll;
+            grid-area: main;
+            background: white;
+            margin: 0;
+            height: 500px;
+            padding: 0.5em 0.5em 0.5em 0.5em;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-areas:
+                'main main main main main main'
+                'name name name message message message';
+            grid-gap: 5px;
+            padding: 10px;
+        }
+
+        .grid-container>div {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px 0;
+            font-size: 30px;
+        }
+
+        .topcorner {
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+    </style>
 </head>
+
 <body>
-<div id="log"></div>
-<form id="form">
-    <input type="submit" value="Send" />
-    <input type="text" id="msg" size="64"/>
-</form>
+    <iframe class="topcorner" src="./sketch/"></iframe>
+    <div class="grid-container">
+        <div class="main" id="log"></div>
+        <div class="name">
+            <form id="formName">
+                <input value="Update" type="submit" value="Send" />
+                <input type="text" id="name" size="64" />
+            </form>
+        </div>
+        <div class="message">
+            <form id="form">
+                <input type="submit" value="Send" />
+                <input type="text" id="msg" size="64" />
+            </form>
+        </div>
+    </div>
+    <!--<div id="log"></div>
+    <div class="grid-container">
+        <div class="grid-item">
+            <form class="form" id="formName">
+                <input value="Update" type="submit" value="Send" />
+                <input type="text" id="name" size="64" />
+            </form>
+        </div>
+        <div class="grid-item">
+            <form class="form" id="form">
+                <input type="submit" value="Send" />
+                <input type="text" id="msg" size="64" />
+            </form>
+        </div>
+    </div>-->
 </body>
+
 </html>
